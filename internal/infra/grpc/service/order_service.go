@@ -39,8 +39,6 @@ func (s *OrderService) CreateOrder(ctx context.Context, in *pb.CreateOrderReques
 }
 
 func (s *OrderService) ListOrders(ctx context.Context, in *pb.ListOrdersRequest) (*pb.ListOrdersResponse, error) {
-	// O ListOrdersUseCase não precisa de DTO de entrada para listar todos.
-	// Se houvesse paginação ou filtros, 'in' seria usado aqui.
 	outputs, err := s.ListOrdersUseCase.Execute()
 	if err != nil {
 		return nil, err
