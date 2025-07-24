@@ -15,6 +15,21 @@ message CreateOrderResponse {
   float final_price = 4;
 }
 
+message ListOrdersRequest {
+}
+
+message Order { // Esta mensagem representa um único pedido na lista.
+  string id = 1;
+  float price = 2;
+  float tax = 3;
+  float final_price = 4;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1; // 'repeated' indica uma lista de objetos 'Order'.
+}
+
 service OrderService {
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
 }
