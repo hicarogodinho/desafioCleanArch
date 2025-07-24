@@ -1,15 +1,21 @@
 package event
 
-import "time"
+import (
+	"time"
+
+	"github.com/devfullcycle/20-CleanArch/pkg/events"
+)
 
 type OrderCreated struct {
-	Name    string
-	Payload interface{}
+	Name     string
+	Payload  interface{}
+	DateTime time.Time
 }
 
 func NewOrderCreated() *OrderCreated {
 	return &OrderCreated{
-		Name: "OrderCreated",
+		Name:     "OrderCreated",
+		DateTime: time.Now(),
 	}
 }
 
@@ -26,5 +32,7 @@ func (e *OrderCreated) SetPayload(payload interface{}) {
 }
 
 func (e *OrderCreated) GetDateTime() time.Time {
-	return time.Now()
+	return e.DateTime
 }
+
+var _ events.EventInterface = (*OrderCreated)(nil)

@@ -9,11 +9,15 @@ import (
 	graphql_handler "github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/devfullcycle/20-CleanArch/configs"
+	"github.com/devfullcycle/20-CleanArch/internal/event"
 	"github.com/devfullcycle/20-CleanArch/internal/event/handler"
+	"github.com/devfullcycle/20-CleanArch/internal/infra/database"
 	"github.com/devfullcycle/20-CleanArch/internal/infra/graph"
 	"github.com/devfullcycle/20-CleanArch/internal/infra/grpc/pb"
 	"github.com/devfullcycle/20-CleanArch/internal/infra/grpc/service"
+	"github.com/devfullcycle/20-CleanArch/internal/infra/web"
 	"github.com/devfullcycle/20-CleanArch/internal/infra/web/webserver"
+	"github.com/devfullcycle/20-CleanArch/internal/usecase"
 	"github.com/devfullcycle/20-CleanArch/pkg/events"
 	"github.com/streadway/amqp"
 	"google.golang.org/grpc"
@@ -38,15 +42,35 @@ func main() {
 	rabbitMQChannel := getRabbitMQChannel()
 
 	eventDispatcher := events.NewEventDispatcher()
+
+	orderCreatedEvent := event.NewOrderCreated()
+
 	eventDispatcher.Register("OrderCreated", &handler.OrderCreatedHandler{
 		RabbitMQChannel: rabbitMQChannel,
 	})
 
-	createOrderUseCase := NewCreateOrderUseCase(db, eventDispatcher)
+	orderRepository := database.NewOrderRepository(db)
+
+	_ = usecase.NewCreateOrderUseCase(
+		orderRepository,
+		orderCreatedEvent,
+		eventDispatcher,
+	)
+
+	_ = usecase.NewListOrdersUseCase(
+		orderRepository,
+	)
 
 	webserver := webserver.NewWebServer(configs.WebServerPort)
-	webOrderHandler := NewWebOrderHandler(db, eventDispatcher)
+
+	webOrderHandler := web.NewWebOrderHandler(
+		eventDispatcher,   // Primeiro parâmetro: EventDispatcherInterface
+		orderRepository,   // Segundo parâmetro: OrderRepositoryInterface
+		orderCreatedEvent, // Terceiro parâmetro: EventInterface (OrderCreatedEvent)
+	)
+
 	webserver.AddHandler("/order", webOrderHandler.Create)
+	webserver.AddHandler("/orders", webOrderHandler.List)
 	fmt.Println("Starting web server on port", configs.WebServerPort)
 	go webserver.Start()
 
