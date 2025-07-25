@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /app/main ./cmd/ordersystem
+RUN go build -tags mysql -o /app/main ./cmd/ordersystem
 
 FROM debian:bookworm-slim
 

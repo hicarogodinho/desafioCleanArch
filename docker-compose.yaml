@@ -1,6 +1,17 @@
 services:
+  application:
+    build: "."
+    container_name: "application"
+    restart: always
+    ports:
+      - 8000:8000
+      - 8080:8080
+      - 50051:50051
+    depends_on:
+      - mysql
+      - rabbitmq
   mysql:
-    image: mysql:5.7
+    image: mysql:9.1.0
     container_name: mysql
     restart: always
     environment:
@@ -9,14 +20,14 @@ services:
       MYSQL_PASSWORD: root
     ports:
       - 3306:3306
-    volumes:
-      - .docker/mysql:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+          cpus: '1.0'
+        reservations:
+          memory: 1024M
+          cpus: '1'
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
@@ -27,43 +38,17 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
-  
-  migrations:
-    image: golang:1.23-alpine
-    container_name: orders_migrations
+  migrate:
+    image: migrate/migrate
+    container_name: migrate
     depends_on:
-      mysql:
-        condition: service_healthy
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: sh -c "go install -tags 'mysql' github.com/golang-migrate/migrate/v4/cmd/migrate@latest && /go/bin/migrate -path migrations -database 'mysql://root:root@tcp(mysql:3306)/orders' up"
-
-  app:
-    build: .
-    container_name: orders_app
-    ports:
-      - 8000:8000
-      - 50051:50051
-      - 8080:8080
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_started
+      - mysql
+    entrypoint: >
+      sh -c "
+      while ! nc -z mysql 3306; do sleep 1; done;
+      migrate -path=/migrations -database 'mysql://root:root@tcp(mysql:3306)/orders' up
+      "
     environment:
-      DB_DRIVER: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: orders
-      WEB_SERVER_PORT: ":8000"
-      GRPC_SERVER_PORT: "50051"
-      GRAPHQL_SERVER_PORT: "8080"
+      DATABASE_URL: "mysql://root:root@tcp(mysql:3306)/orders"
     volumes:
-      - go-cache:/root/.cache/go-build
-
-volumes:
-  go-cache: # Declara o volume nomeado 'go-cache'
-    # driver: local # Opcional: 'local' é o padrão se nenhum driver for especificado
+      - ./migrations:/migrations
